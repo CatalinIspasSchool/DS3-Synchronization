@@ -29,11 +29,12 @@
 #include <climits> // Include for INT_MAX
 
 //const int THRESHOLD=100000000;//10'000'000
-const size_t number_of_elements = 10; //Try 10, 100, 1'000, 10'000, 100'000, 1'000'000, 10'000'000, 100'000'000, and 1'000'000'000 depending on your computer resources. 
+const size_t number_of_elements = 10000000; //Try 10, 100, 1'000, 10'000, 100'000, 1'000'000, 10'000'000, 100'000'000, and 1'000'000'000 depending on your computer resources. 
 //Stop execution if it exeeds more than 4-5 minutes and try differn configs.
 
+std::atomic<int> totalThreads = 0;
 
-//std::mutex cout_mutex;
+std::mutex cout_mutex;
 
 
 
@@ -112,7 +113,13 @@ void parallel_mergesort(std::vector<int>& array, int left, int right) {
         // Create two threads for sorting each half of the array
 
         std::thread leftThread(parallel_mergesort, std::ref(array), left, mid);
+        totalThreads.fetch_add(1);
+
         std::thread rightThread(parallel_mergesort, std::ref(array), mid + 1, right);
+        totalThreads.fetch_add(1);
+        cout_mutex.lock();
+        std::cout << "--Thread" << totalThreads << ": start=" << mid + 1 << " end=" << right << std::endl;
+        cout_mutex.unlock();
 
         // Wait for both threads to finish
         leftThread.join();
@@ -137,7 +144,16 @@ void partial_parallel_mergesort(std::vector<int>& array, int left, int right, in
             
             // Create two threads for sorting each half of the array
             std::thread leftThread(partial_parallel_mergesort, std::ref(array), left, mid, depth - 1);
+            totalThreads.fetch_add(1);
+            //cout_mutex.lock();
+            //std::cout << "--Thread" << totalThreads << ": start=" << left << " end=" << mid << std::endl;
+            //cout_mutex.unlock();.
+
             std::thread rightThread(partial_parallel_mergesort, std::ref(array), mid + 1, right, depth - 1);
+            totalThreads.fetch_add(1);
+            //cout_mutex.lock();
+            //std::cout << "--Thread" << totalThreads << ": start=" << mid + 1 << " end=" << right << std::endl;
+            //cout_mutex.unlock();
 
             // Wait for both threads to finish
             leftThread.join();
@@ -198,11 +214,11 @@ int main() {
 	std::shuffle(array.begin(), array.end(), gen);  // Shuffle using the same random number generator
 
 	// Measure the time taken by parallel mergesort
-	int maxDepth = 2; // Define the depth of parallelism
+	int maxDepth = 3; // Define the depth of parallelism
 	start = std::chrono::high_resolution_clock::now();
 
-	parallel_mergesort(array, 0, array.size() - 1);  // Perform parallel mergesort on the entire array
-    //partial_parallel_mergesort(array, 0, array.size() - 1, maxDepth);  // Perform partial parallel mergesort on the entire array
+	//parallel_mergesort(array, 0, array.size() - 1);  // Perform parallel mergesort on the entire array
+    partial_parallel_mergesort(array, 0, array.size() - 1, maxDepth);  // Perform partial parallel mergesort on the entire array
 
 	end = std::chrono::high_resolution_clock::now();
 	// Calculate and print the duration for parallel sort
@@ -215,6 +231,8 @@ int main() {
 	// Calculate and print the speedup achieved by parallelisation
 	double speedup = static_cast<double>(durationSeq) / durationPar;
 	std::cout << "Speedup: " << speedup << "x" << std::endl;
+
+    std::cout << "Threads deployed: " << totalThreads << std::endl;
 
  //-----------------------------------------------------------------------------------------------------
  // Print the number of CPU cores
