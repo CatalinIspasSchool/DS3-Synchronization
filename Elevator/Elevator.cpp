@@ -26,6 +26,8 @@ constexpr int STOP_DURATION = 500; // Time in milliseconds for the elevator to s
 std::atomic<int> currentLevel(0); // Current floor of the elevator, starting at ground floor (0)
 std::atomic<bool> movingUp(true); // Direction of elevator movement, initially set to move up 
 
+std::counting_semaphore<64> sem(MAX_CAPACITY);
+
 std::atomic<int> passengersInElevator(0); // Number of passengers currently in the elevator
 std::mutex coutMutex; // Mutex for synchronizing access to console output
 std::mutex elevatorMutex; // Mutex for synchronizing access to elevator-specific operations
@@ -37,6 +39,8 @@ map<int, vector<pair<int, int>>> pickupRequests; // Map to hold pickup requests 
 std::mutex pickupRequestsMutex; // Mutex for synchronizing access to pickup requests
 map<int, vector<pair<int, int>>> deliveredPassengers; // Map to hold delivered passengers per floor
 std::mutex deliveredPassengersMutex; // Mutex for synchronizing access to deliveredPassengers map
+
+int stepsTaken = 0;
 
 // Function to clear the console. The implementation depends on the operating system
 void clearConsole() {
@@ -88,6 +92,8 @@ void printBuilding() {
         cout << endl; // New line for the next floor.
     }
     cout << "\n---------------------------------------\n"; 
+    cout << "Steps Taken: " << stepsTaken << '\n';
+    stepsTaken++;
 }
 
 // Passenger class definition
@@ -145,6 +151,7 @@ public:
         }
 
         // Simulates leaving the elevator, making space for new passengers. --Todo Task2
+        sem.release();
         passengersInElevator--; // Decrements the passenger count in the elevator.
 
         // Locks for dealing with inside-elevator and delivered passenger lists to update states.
